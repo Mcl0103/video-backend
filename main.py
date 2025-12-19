@@ -5,6 +5,12 @@ from pydantic import BaseModel
 import subprocess
 import uuid
 import os
+import time
+def limpiar_archivos(*archivos):
+    time.sleep(10)
+    for archivo in archivos:
+        if os.path.exists(archivo):
+            os.remove(archivo)
 
 app = FastAPI()
 
@@ -67,8 +73,7 @@ def descargar_video(data: Link, background_tasks: BackgroundTasks):
             raise Exception("No se creó el MP4")
 
         # 3️⃣ LIMPIEZA AUTOMÁTICA (después de enviar)
-        background_tasks.add_task(os.remove, raw_file)
-        background_tasks.add_task(os.remove, final_file)
+      background_tasks.add_task(limpiar_archivos, raw_file, final_file)
 
         return FileResponse(
             final_file,
