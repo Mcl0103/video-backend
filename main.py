@@ -1,10 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
+import uuid
+import subprocess
+import os
 
 app = FastAPI()
 
-# PERMITIR LLAMADAS DESDE CUALQUIER WEB (por ahora)
+# Permitir llamadas desde cualquier web
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,8 +24,29 @@ class Link(BaseModel):
 def root():
     return {"status": "backend vivo"}
 
-@app.post("/recibir")
-def recibir_link(link: Link):
-    return {
-        "message": f"Backend recibió el link: {link.url}"
-    }
+@app.post("/descargar")
+def descargar_video(data: Link):
+    video_id = str(uuid.uuid4())
+    output_file = f"{video_id}.mp4"
+
+    try:
+        subprocess.run(
+            [
+                "yt-dlp",
+                "-f",
+                "mp4",
+                "-o",
+                output_file,
+                data.url,
+            ],
+            check=True,
+        )
+
+        return FileResponse(
+            path=output_file,
+            filename="video.mp4",
+            media_type="video/mp4",
+        )
+
+    except Exception as e:
+        return {"error": str(e)}
