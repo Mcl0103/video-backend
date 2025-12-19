@@ -30,19 +30,20 @@ def descargar_video(data: Link):
     output_file = f"{video_id}.mp4"
 
     try:
-       subprocess.run(
+      subprocess.run(
     [
         "yt-dlp",
-        "-f",
-        "bv*[vcodec^=avc1]/bv*+ba/b",
-        "--merge-output-format",
-        "mp4",
+        data.url,
         "-o",
         output_file,
-        data.url,
+        "--recode-video",
+        "mp4",
+        "--postprocessor-args",
+        "-c:v libx264 -pix_fmt yuv420p",
     ],
     check=True,
 )
+
 
 
         return FileResponse(
