@@ -1,7 +1,6 @@
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel
 import subprocess
 import uuid
 import os
@@ -17,9 +16,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class Link(BaseModel):
-    url: str
-
 def limpiar_archivos(*archivos):
     time.sleep(15)
     for archivo in archivos:
@@ -34,8 +30,11 @@ def root():
     return {"status": "backend vivo"}
 
 @app.post("/descargar")
-def descargar_video(data: Link, background_tasks: BackgroundTasks):
-    if not data.url.startswith("http"):
+def descargar_video(
+    url: str = Form(...),
+    background_tasks: BackgroundTasks = None,
+):
+    if not url.startswith("http"):
         return JSONResponse(
             status_code=400,
             content={"error": "URL inválida"},
@@ -48,14 +47,14 @@ def descargar_video(data: Link, background_tasks: BackgroundTasks):
     try:
         # 1️⃣ Descargar video
         subprocess.run(
-            ["yt-dlp", data.url, "-o", raw_file],
+            ["yt-dlp", url, "-o", raw_file],
             check=True,
         )
 
         if not os.path.exists(raw_file):
             raise Exception("No se descargó el archivo")
 
-        # 2️⃣ Convertir SI O SI a MP4 H.264
+        # 2️⃣ Convertir SI O SI a MP4 (H.264 compatible)
         subprocess.run(
             [
                 "ffmpeg",
@@ -76,12 +75,13 @@ def descargar_video(data: Link, background_tasks: BackgroundTasks):
         if not os.path.exists(final_file):
             raise Exception("No se creó el MP4")
 
-        # 3️⃣ Limpieza con delay
-        background_tasks.add_task(
-            limpiar_archivos,
-            raw_file,
-            final_file,
-        )
+        # 3️⃣ Limpieza con delay (después de descargar)
+        if background_tasks:
+            background_tasks.add_task(
+                limpiar_archivos,
+                raw_file,
+                final_file,
+            )
 
         return FileResponse(
             final_file,
