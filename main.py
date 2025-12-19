@@ -6,11 +6,6 @@ import subprocess
 import uuid
 import os
 import time
-def limpiar_archivos(*archivos):
-    time.sleep(10)
-    for archivo in archivos:
-        if os.path.exists(archivo):
-            os.remove(archivo)
 
 app = FastAPI()
 
@@ -24,6 +19,15 @@ app.add_middleware(
 
 class Link(BaseModel):
     url: str
+
+def limpiar_archivos(*archivos):
+    time.sleep(15)
+    for archivo in archivos:
+        if os.path.exists(archivo):
+            try:
+                os.remove(archivo)
+            except:
+                pass
 
 @app.get("/")
 def root():
@@ -42,7 +46,7 @@ def descargar_video(data: Link, background_tasks: BackgroundTasks):
     final_file = f"{uid}.mp4"
 
     try:
-        # 1️⃣ Descargar el video (sin importar el códec)
+        # 1️⃣ Descargar video
         subprocess.run(
             ["yt-dlp", data.url, "-o", raw_file],
             check=True,
@@ -72,8 +76,12 @@ def descargar_video(data: Link, background_tasks: BackgroundTasks):
         if not os.path.exists(final_file):
             raise Exception("No se creó el MP4")
 
-        # 3️⃣ LIMPIEZA AUTOMÁTICA (después de enviar)
-      background_tasks.add_task(limpiar_archivos, raw_file, final_file)
+        # 3️⃣ Limpieza con delay
+        background_tasks.add_task(
+            limpiar_archivos,
+            raw_file,
+            final_file,
+        )
 
         return FileResponse(
             final_file,
