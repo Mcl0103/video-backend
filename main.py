@@ -25,50 +25,57 @@ def root():
 
 @app.post("/descargar")
 def descargar_video(data: Link):
-    # Validación básica
     if not data.url.startswith("http"):
-        return JSONResponse(
-            status_code=400,
-            content={"error": "URL inválida"},
-        )
+        return JSONResponse(status_code=400, content={"error": "URL inválida"})
 
-    video_id = str(uuid.uuid4())
-    output_file = f"{video_id}.mp4"
-
-    command = [
-        "yt-dlp",
-        "-f",
-        "bv*[vcodec=avc1]/bv*",
-        "--merge-output-format",
-        "mp4",
-        "-o",
-        output_file,
-        data.url,
-    ]
+    uid = str(uuid.uuid4())
+    raw_file = f"{uid}.mkv"
+    final_file = f"{uid}.mp4"
 
     try:
-        result = subprocess.run(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=60,
+        # 1️⃣ Descargar SIN importar el códec
+        subprocess.run(
+            [
+                "yt-dlp",
+                data.url,
+                "-o",
+                raw_file,
+            ],
+            check=True,
         )
 
-        # Si yt-dlp falla
-        if result.returncode != 0 or not os.path.exists(output_file):
-            return JSONResponse(
-                status_code=400,
-                content={"error": "No se pudo descargar este video"},
-            )
+        if not os.path.exists(raw_file):
+            raise Exception("No se descargó el archivo")
+
+        # 2️⃣ Convertir SI O SI a H.264
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                raw_file,
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-movflags",
+                "+faststart",
+                final_file,
+            ],
+            check=True,
+        )
+
+        if not os.path.exists(final_file):
+            raise Exception("No se creó el MP4")
 
         return FileResponse(
-            path=output_file,
+            final_file,
             filename="video.mp4",
             media_type="video/mp4",
         )
 
-    except Exception:
+    except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={"error": "Error interno del servidor"},
+            content={"error": "No se pudo procesar el video"},
         )
